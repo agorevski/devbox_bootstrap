@@ -31,6 +31,8 @@ winget install Microsoft.DotNet.SDK.8 --accept-package-agreements --accept-sourc
 winget install Microsoft.DotNet.SDK.9 --accept-package-agreements --accept-source-agreements --silent
 winget install Microsoft.DotNet.SDK.Preview --accept-package-agreements --accept-source-agreements --silent
 
+winget install Git.Git  --accept-package-agreements --accept-source-agreements --silent
+
 winget install Microsoft.PowerShell --accept-package-agreements --accept-source-agreements --silent
 
 winget install Microsoft.PowerToys --accept-package-agreements --accept-source-agreements --silent
