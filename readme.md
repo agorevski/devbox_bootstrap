@@ -8,6 +8,10 @@ DISM /Online /Enable-Feature /FeatureName:Containers-DisposableClientVM /All
 
 winget install Docker.DockerDesktop --accept-package-agreements --accept-source-agreements --silent
 
+# KeePass
+winget install DominikReichl.KeePass --accept-package-agreements --accept-source-agreements --silent
+
+
 winget install Git.Git --accept-package-agreements --accept-source-agreements --silent
 
 winget install Microsoft.Azure.AZCopy.10 --accept-package-agreements --accept-source-agreements --silent
