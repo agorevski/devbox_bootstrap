@@ -6,6 +6,8 @@ DISM /Online /Enable-Feature /All /FeatureName:Microsoft-Hyper-V
 DISM /Online /Enable-Feature /FeatureName:Containers-DisposableClientVM /All
 
 
+winget install Bruno.Bruno --accept-package-agreements --accept-source-agreements --silent
+
 winget install Docker.DockerDesktop --accept-package-agreements --accept-source-agreements --silent
 
 # KeePass
