@@ -98,6 +98,8 @@ winget install Microsoft.WSL --accept-package-agreements --accept-source-agreeme
 winget install mkcert --accept-package-agreements --accept-source-agreements --silent
 
 winget install "Node.js (LTS)" --accept-package-agreements --accept-source-agreements --silent
+    npm install -g hardhat
+    npm install -g httpyac
 
 winget install Notepad++.Notepad++ --accept-package-agreements --accept-source-agreements --silent
 
