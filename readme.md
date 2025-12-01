@@ -317,6 +317,8 @@ winget install Telerik.Fiddler.Everywhere --accept-package-agreements --accept-s
 ```bash
 # Notepad++
 winget install Notepad++.Notepad++ --accept-package-agreements --accept-source-agreements --silent
+# Sublime Text 4
+winget install SublimeHQ.SublimeText.4 --accept-package-agreements --accept-source-agreements --silent
 # Windows Notepad (from MS Store)
 winget install 9MSMLRH6LZF3 --accept-package-agreements --accept-source-agreements --silent
 # PowerToys (Windows utilities)
