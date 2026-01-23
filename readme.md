@@ -325,6 +325,8 @@ winget install 9MSMLRH6LZF3 --accept-package-agreements --accept-source-agreemen
 winget install Microsoft.PowerToys --accept-package-agreements --accept-source-agreements --silent
 # 7-Zip (file compression)
 winget install 7zip.7zip --accept-package-agreements --accept-source-agreements --silent
+# WinDirStat (disk usage analyzer)
+winget install WinDirStat.WinDirStat --accept-package-agreements --accept-source-agreements --silent
 # Everything (fast file search)
 winget install voidtools.Everything --accept-package-agreements --accept-source-agreements --silent
 # ShareX (screenshot tool)
