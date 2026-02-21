@@ -52,6 +52,22 @@ git config --global alias.last "log -1 HEAD"
 
 ---
 
+## GitHub Copilot CLI
+
+AI-powered command line assistant. Requires an active [GitHub Copilot subscription](https://github.com/features/copilot/plans) and PowerShell v6+.
+
+For full setup details, see the [official installation guide](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli).
+
+```bash
+# GitHub Copilot CLI (stable)
+winget install GitHub.Copilot --accept-package-agreements --accept-source-agreements --silent
+
+# GitHub Copilot CLI (prerelease)
+winget install GitHub.Copilot.Prerelease --accept-package-agreements --accept-source-agreements --silent
+```
+
+---
+
 ## Container & Virtualization
 
 ```bash
