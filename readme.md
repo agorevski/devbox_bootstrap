@@ -29,6 +29,11 @@ DISM /Online /Enable-Feature /FeatureName:Containers-DisposableClientVM /All
 ```bash
 winget install Git.Git --accept-package-agreements --accept-source-agreements --silent
 
+# GitHub CLI (gh) - manage repos, PRs, issues from the terminal
+winget install GitHub.cli --accept-package-agreements --accept-source-agreements --silent
+# Delta (better git diffs with syntax highlighting)
+winget install dandavison.delta --accept-package-agreements --accept-source-agreements --silent
+
 # Optional: GUI Git Clients
 # winget install GitHub.GitHubDesktop --accept-package-agreements --accept-source-agreements --silent
 # winget install Axosoft.GitKraken --accept-package-agreements --accept-source-agreements --silent
@@ -48,6 +53,12 @@ git config --global alias.ci commit
 git config --global alias.st status
 git config --global alias.unstage "reset HEAD --"
 git config --global alias.last "log -1 HEAD"
+
+# If using delta, configure Git to use it as the pager
+git config --global core.pager delta
+git config --global interactive.diffFilter "delta --color-only"
+git config --global delta.navigate true
+git config --global merge.conflictstyle diff3
 ```
 
 ---
@@ -200,6 +211,28 @@ winget install GoLang.Go --accept-package-agreements --accept-source-agreements 
 
 ---
 
+## Rust Development
+
+```bash
+# Rust toolchain (rustup, cargo, rustc)
+winget install Rustlang.Rustup --accept-package-agreements --accept-source-agreements --silent
+```
+
+---
+
+## Java Development
+
+```bash
+# Microsoft OpenJDK 21 (LTS)
+# winget install Microsoft.OpenJDK.21 --accept-package-agreements --accept-source-agreements --silent
+# Maven (build tool)
+# winget install Apache.Maven --accept-package-agreements --accept-source-agreements --silent
+# Gradle (build tool)
+# winget install Gradle.Gradle --accept-package-agreements --accept-source-agreements --silent
+```
+
+---
+
 ## PowerShell & Terminal
 
 ```bash
@@ -285,6 +318,27 @@ code --install-extension ritwickdey.liveserver
 
 ---
 
+## CLI Utilities
+
+```bash
+# jq (JSON processor)
+winget install jqlang.jq --accept-package-agreements --accept-source-agreements --silent
+# yq (YAML/XML/TOML processor)
+winget install MikeFarah.yq --accept-package-agreements --accept-source-agreements --silent
+# ripgrep (fast recursive search)
+winget install BurntSushi.ripgrep.MSVC --accept-package-agreements --accept-source-agreements --silent
+# fzf (fuzzy finder)
+winget install junegunn.fzf --accept-package-agreements --accept-source-agreements --silent
+# bat (cat with syntax highlighting)
+winget install sharkdp.bat --accept-package-agreements --accept-source-agreements --silent
+# fd (fast find alternative)
+winget install sharkdp.fd --accept-package-agreements --accept-source-agreements --silent
+# wget
+winget install JernejSimoncic.Wget --accept-package-agreements --accept-source-agreements --silent
+```
+
+---
+
 ## API Development & Testing
 
 ```bash
@@ -320,6 +374,10 @@ winget install DominikReichl.KeePass --accept-package-agreements --accept-source
 winget install Microsoft.WinDbg --accept-package-agreements --accept-source-agreements --silent
 # Fiddler (web debugging proxy)
 winget install Telerik.Fiddler.Everywhere --accept-package-agreements --accept-source-agreements --silent
+# Wireshark (network protocol analyzer)
+winget install WiresharkFoundation.Wireshark --accept-package-agreements --accept-source-agreements --silent
+# Sysinternals Suite (Process Explorer, Process Monitor, Autoruns, etc.)
+winget install Microsoft.Sysinternals.Suite --accept-package-agreements --accept-source-agreements --silent
 # OWASP ZAP (security testing)
 # winget install ZAP.ZAP --accept-package-agreements --accept-source-agreements --silent
 # Trivy (container security scanner)
@@ -347,6 +405,38 @@ winget install WinDirStat.WinDirStat --accept-package-agreements --accept-source
 winget install voidtools.Everything --accept-package-agreements --accept-source-agreements --silent
 # ShareX (screenshot tool)
 winget install ShareX.ShareX --accept-package-agreements --accept-source-agreements --silent
+# Ditto (clipboard manager)
+winget install Ditto.Ditto --accept-package-agreements --accept-source-agreements --silent
+# WinMerge (file/folder diff and merge)
+winget install WinMerge.WinMerge --accept-package-agreements --accept-source-agreements --silent
+# Obsidian (knowledge base / notes)
+# winget install Obsidian.Obsidian --accept-package-agreements --accept-source-agreements --silent
+# draw.io Desktop (diagramming)
+# winget install JGraph.Draw --accept-package-agreements --accept-source-agreements --silent
+```
+
+---
+
+## Browsers
+
+```bash
+# Google Chrome
+winget install Google.Chrome --accept-package-agreements --accept-source-agreements --silent
+# Firefox
+# winget install Mozilla.Firefox --accept-package-agreements --accept-source-agreements --silent
+# Firefox Developer Edition
+# winget install Mozilla.Firefox.DeveloperEdition --accept-package-agreements --accept-source-agreements --silent
+```
+
+---
+
+## Network & Tunneling
+
+```bash
+# ngrok (expose local servers to the internet)
+winget install Ngrok.Ngrok --accept-package-agreements --accept-source-agreements --silent
+# WireGuard (VPN)
+# winget install WireGuard.WireGuard --accept-package-agreements --accept-source-agreements --silent
 ```
 
 ---
