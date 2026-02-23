@@ -6,6 +6,20 @@ description: >
   cherry-picking, undoing changes, tagging releases, working with remotes,
   or inspecting git history. Also trigger for questions about git aliases
   or git productivity.
+triggers:
+  - "git help"
+  - "how to branch"
+  - "create a PR"
+  - "rebase my branch"
+  - "merge conflict"
+  - "git stash"
+  - "conventional commit"
+  - "cherry pick"
+  - "undo commit"
+  - "tag release"
+  - "git remote"
+  - "git log"
+  - "git alias"
 ---
 
 # Git Workflow Skill
@@ -541,3 +555,164 @@ git checkout -b branch-name abc1234
 git revert HEAD                  # creates undo commit (safe for shared branches)
 git push
 ```
+
+---
+
+## 14. Signed Commits
+
+### SSH signing (recommended — simplest setup)
+```bash
+# Configure git to use SSH for signing
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true
+git config --global tag.gpgsign true
+
+# Sign a single commit
+git commit -S -m "feat: add signed feature"
+
+# Verify a signature
+git log --show-signature -1
+```
+
+### GPG signing
+```bash
+# List GPG keys
+gpg --list-secret-keys --keyid-format=long
+
+# Configure git
+git config --global user.signingkey <KEY_ID>
+git config --global commit.gpgsign true
+
+# Generate a GPG key if needed
+gpg --full-generate-key   # choose RSA 4096, no expiry for convenience
+
+# Export public key (add to GitHub → Settings → SSH and GPG keys)
+gpg --armor --export <KEY_ID>
+```
+
+### Verify commits on GitHub
+Signed commits show a "Verified" badge on GitHub. Configure branch protection
+to require signed commits:
+```
+Settings → Branches → Branch protection rules → Require signed commits
+```
+
+---
+
+## 15. Git Worktrees
+
+Worktrees let you check out multiple branches simultaneously in separate
+directories — no stashing, no context switching.
+
+```bash
+# Create a worktree for a feature branch
+git worktree add ../my-feature feature/my-feature
+
+# Create a worktree from a new branch
+git worktree add -b hotfix/urgent ../hotfix main
+
+# List all worktrees
+git worktree list
+
+# Remove a worktree (after merging)
+git worktree remove ../my-feature
+
+# Prune stale worktree entries
+git worktree prune
+```
+
+### When to use worktrees
+- Reviewing a PR while working on your own feature
+- Running tests on one branch while coding on another
+- Hotfix that can't wait for your current work to be committed
+- Comparing behavior between branches side-by-side
+
+---
+
+## 16. Submodules & Sparse Checkout
+
+### Submodules
+```bash
+# Add a submodule
+git submodule add https://github.com/org/lib.git libs/lib
+
+# Clone a repo with submodules
+git clone --recurse-submodules https://github.com/org/repo.git
+
+# Initialize submodules after a plain clone
+git submodule update --init --recursive
+
+# Update all submodules to latest
+git submodule update --remote --merge
+
+# Remove a submodule
+git submodule deinit libs/lib
+git rm libs/lib
+rm -rf .git/modules/libs/lib
+```
+
+### Sparse checkout (large monorepos)
+```bash
+# Enable sparse checkout
+git sparse-checkout init --cone
+
+# Only check out specific directories
+git sparse-checkout set src/myservice tests/myservice
+
+# Add more directories later
+git sparse-checkout add docs/
+
+# List what's checked out
+git sparse-checkout list
+
+# Disable (check out everything again)
+git sparse-checkout disable
+```
+
+---
+
+## 17. .gitattributes
+
+Control line endings, diff behavior, and merge strategies per file type.
+
+```gitattributes
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Force LF for source files (cross-platform consistency)
+*.cs    text eol=lf
+*.py    text eol=lf
+*.js    text eol=lf
+*.ts    text eol=lf
+*.go    text eol=lf
+*.rs    text eol=lf
+*.sh    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+
+# Force CRLF for Windows-only files
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+*.sln   text eol=crlf
+
+# Binary files (don't diff or merge)
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.ico   binary
+*.woff2 binary
+*.zip   binary
+*.exe   binary
+*.dll   binary
+
+# Lock files — don't merge, always take the branch version
+package-lock.json merge=ours
+yarn.lock         merge=ours
+```
+
+Place at the repo root. Run `git add --renormalize .` after creating to apply
+to existing files.

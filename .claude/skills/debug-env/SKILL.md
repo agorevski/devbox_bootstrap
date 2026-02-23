@@ -4,6 +4,16 @@ description: >
   Diagnose and fix broken Windows 11 developer environments set up via devbox_bootstrap.
   Covers winget, Git, Docker Desktop, Node.js/nvm, Python, .NET SDK, WSL2, VS Code,
   PowerShell, Azure CLI, PATH corruption, and corporate SSL/proxy issues.
+triggers:
+  - "debug my environment"
+  - "fix my dev environment"
+  - "my tools are broken"
+  - "environment issues"
+  - "fix my setup"
+  - "tool not working"
+  - "command not found"
+  - "PATH issues"
+  - "dev environment broken"
 ---
 
 # Skill: Debug Windows Developer Environment
@@ -583,6 +593,62 @@ netsh int ip reset
 
 ---
 
+## 8.5. Kubernetes Tooling Issues
+
+### kubectl Context Problems
+
+```powershell
+# List all contexts
+kubectl config get-contexts
+
+# Switch context
+kubectl config use-context <context-name>
+
+# View current context
+kubectl config current-context
+
+# If kubeconfig is missing or corrupted
+$kubeconfigPath = "$env:USERPROFILE\.kube\config"
+Test-Path $kubeconfigPath
+
+# AKS: re-fetch credentials
+az aks get-credentials --resource-group <rg> --name <cluster> --overwrite-existing
+```
+
+### helm Repo Issues
+
+```powershell
+# List configured repos
+helm repo list
+
+# Update all repos
+helm repo update
+
+# Add common repos
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+
+# Fix corrupted cache
+Remove-Item "$env:APPDATA\helm\cache" -Recurse -Force -ErrorAction SilentlyContinue
+helm repo update
+```
+
+### Kubernetes DNS / Networking Debugging
+
+```powershell
+# Test connectivity from within a cluster
+kubectl run debug --image=busybox --rm -it --restart=Never -- nslookup kubernetes.default
+
+# Check pod status
+kubectl get pods --all-namespaces | Select-String -Pattern "Error|CrashLoop|ImagePull"
+
+# View pod logs
+kubectl logs <pod-name> --tail=50
+kubectl logs <pod-name> --previous   # logs from crashed container
+```
+
+---
+
 ## 9. VS Code Issues
 
 ### Extensions Not Loading
@@ -753,6 +819,71 @@ winget upgrade --id Microsoft.AzureCLI
 
 ---
 
+## 11.5. GitHub CLI (gh) Issues
+
+### gh Not Found
+
+```powershell
+# Check installation
+Get-Command gh -ErrorAction SilentlyContinue
+winget list --id GitHub.cli
+
+# Install
+winget install --id GitHub.cli
+
+# Add to PATH if needed
+$ghPath = "C:\Program Files\GitHub CLI"
+if (Test-Path $ghPath) {
+    $env:PATH += ";$ghPath"
+}
+```
+
+### gh Auth Problems
+
+```powershell
+# Check auth status
+gh auth status
+
+# Re-authenticate (interactive)
+gh auth login
+
+# Login with token
+$env:GH_TOKEN = "ghp_xxxxx"
+gh auth status
+
+# Switch between accounts
+gh auth switch
+
+# Clear all auth tokens
+gh auth logout
+```
+
+### gh Extension Issues
+
+```powershell
+# List installed extensions
+gh extension list
+
+# Upgrade all extensions
+gh extension upgrade --all
+
+# Remove and reinstall a broken extension
+gh extension remove <extension>
+gh extension install <owner>/<extension>
+```
+
+### gh API Rate Limiting
+
+```powershell
+# Check rate limit status
+gh api rate_limit
+
+# If rate limited, ensure you're authenticated (authenticated gets 5000 req/hr vs 60):
+gh auth status
+```
+
+---
+
 ## 12. PATH Corruption / Issues
 
 ### Diagnosing PATH Problems
@@ -915,6 +1046,7 @@ Test-Tool "pip"      { python -m pip --version }
 Test-Tool "dotnet"   { dotnet --version } -Hint "Run: winget install Microsoft.DotNet.SDK.8"
 Test-Tool "az"       { az --version 2>&1 | Select-Object -First 1 } -Hint "Run: winget install Microsoft.AzureCLI"
 Test-Tool "code"     { code --version 2>&1 | Select-Object -First 1 }
+Test-Tool "gh"       { gh --version } -Hint "Run: winget install GitHub.cli"
 Test-Tool "pwsh"     { pwsh --version }
 
 Write-Host "`n--- Container & K8s Tools ---" -ForegroundColor White
@@ -977,6 +1109,8 @@ if ($fail -gt 0) { Write-Host "Run with -Fix flag to attempt automatic repairs: 
 | VS Code broken | Clear cache, reinstall extensions | Full VS Code uninstall + reinstall |
 | PowerShell profile broken | Test with `-NoProfile`, fix profile | Delete profile, recreate from scratch |
 | SSL/cert errors everywhere | Add corp CA to all tool stores | Involve IT — may need new cert bundle |
+| gh CLI auth broken | `gh auth logout` + `gh auth login` | Reinstall: `winget uninstall GitHub.cli && winget install GitHub.cli` |
+| kubectl can't connect | Re-fetch AKS credentials | Check VPN, firewall, cluster status |
 
 ---
 

@@ -84,7 +84,7 @@ Before I generate the workflows, I need a few answers:
    e) No deployment needed (CI only)
 
 4. **Matrix testing** — Do you need to test across multiple OS or
-   language versions? (e.g. ubuntu + windows, Python 3.11 + 3.12)
+   language versions? (e.g. ubuntu + windows, Python 3.12 + 3.13)
 
 5. **Coverage reporting** — Codecov, Azure artifacts, or skip?
 
@@ -113,6 +113,13 @@ on:
   # Add if user chose tags:
   # push:
   #   tags: ["v*.*.*"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 ```
 
 ### 3b — .NET job
@@ -128,7 +135,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.x"   # adjust to project's global.json version
+          dotnet-version: "9.x"   # adjust to project's global.json version
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
@@ -171,7 +178,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"   # adjust as needed
+          python-version: "3.13"   # adjust as needed
 
       - name: Cache pip
         uses: actions/cache@v4
@@ -218,7 +225,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
@@ -320,9 +327,85 @@ Wrap the relevant job in a matrix strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        # python-version: ["3.11", "3.12"]   # uncomment for Python matrix
+        # python-version: ["3.11", "3.13"]   # uncomment for Python matrix
     runs-on: ${{ matrix.os }}
 ```
+
+### 3h — Dependency review (for PRs)
+
+Add this job to `ci.yml` to automatically flag new dependencies with known
+vulnerabilities on pull requests:
+
+```yaml
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+```
+
+### 3i — Dependabot Configuration
+
+Create `.github/dependabot.yml` to keep GitHub Actions versions and project
+dependencies up to date automatically:
+
+```yaml
+# .github/dependabot.yml
+version: 2
+updates:
+  # Keep GitHub Actions up to date
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # --- Add ONE of the following blocks for the detected stack ---
+
+  # .NET (NuGet)
+  # - package-ecosystem: "nuget"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+
+  # Python (pip)
+  # - package-ecosystem: "pip"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+
+  # Node.js (npm)
+  # - package-ecosystem: "npm"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+
+  # Go (gomod)
+  # - package-ecosystem: "gomod"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+
+  # Rust (cargo)
+  # - package-ecosystem: "cargo"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+
+  # Docker
+  # - package-ecosystem: "docker"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+```
+
+Uncomment the block(s) matching the detected stack.
 
 ---
 
@@ -342,6 +425,10 @@ on:
     branches: [main]
   # workflow_dispatch allows manual runs from the Actions tab
   workflow_dispatch:
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   id-token: write   # required for OIDC
@@ -373,7 +460,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.x"
+          dotnet-version: "9.x"
 
       - name: Publish
         run: dotnet publish --configuration Release --output ./publish
@@ -467,7 +554,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.x"
+          dotnet-version: "9.x"
 
       - name: Build
         run: dotnet build --configuration Release --output ./output
@@ -514,6 +601,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push
+        id: push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -523,6 +611,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
 ```
 
 ---
@@ -582,8 +677,8 @@ Go to GitHub → Settings → Secrets and variables → Actions → New reposito
 | Variable name            | Example value    |
 |--------------------------|------------------|
 | `AZURE_REGION`           | `eastus`         |
-| `DOTNET_VERSION`         | `8.0`            |
-| `NODE_VERSION`           | `20`             |
+| `DOTNET_VERSION`         | `9.0`            |
+| `NODE_VERSION`           | `22`             |
 
 ---
 
@@ -659,6 +754,88 @@ Before committing, verify:
 - [ ] Environments in `cd.yml` match environments created in GitHub Settings
 - [ ] Branch protection rules are configured
 - [ ] OIDC federated credential subject matches the exact branch/event pattern
+
+---
+
+## Reusable Workflow Pattern
+
+For organizations with multiple repositories sharing the same CI logic, extract
+the CI job into a **reusable workflow** with `workflow_call:`.
+
+### Create the reusable workflow (e.g. `.github/workflows/ci-reusable.yml`)
+
+```yaml
+name: Reusable CI
+
+on:
+  workflow_call:
+    inputs:
+      dotnet-version:
+        required: false
+        type: string
+        default: "9.x"
+      node-version:
+        required: false
+        type: string
+        default: "22"
+      python-version:
+        required: false
+        type: string
+        default: "3.13"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Add the stack-specific steps here (same as ci.yml jobs)
+      # e.g. setup-dotnet, restore, build, test
+```
+
+### Call from the same repo (`ci.yml`)
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci-reusable.yml
+    with:
+      dotnet-version: "9.x"
+```
+
+### Call from another repository
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: <org>/.github/.github/workflows/ci-reusable.yml@main
+    with:
+      dotnet-version: "9.x"
+```
+
+> **Note:** Cross-repo reusable workflows must live in a `.github` repository
+> or the calling repo must have access. The reusable workflow must be in a
+> public repo or the same organization with internal visibility.
 
 ---
 

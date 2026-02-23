@@ -40,6 +40,11 @@ Before reviewing anything, clarify what to review and why.
 - For changed files, read surrounding code (not just the diff) to understand existing patterns
 - Note the language(s), framework(s), and architectural style in use
 
+**Review depth calibration:**
+- **Small change** (< 50 lines): Full line-by-line review, focus on correctness
+- **Medium change** (50–300 lines): Architecture + security + correctness, sample test quality
+- **Large change** (300+ lines): Architecture-first, security review all paths, sample correctness on high-risk files, flag if change should have been split into smaller PRs
+
 ---
 
 ## Phase 2 — Architecture & Design Review
@@ -52,6 +57,23 @@ Ask these questions for every significant change:
 - **Complexity**: Is there unnecessary complexity? Could the same result be achieved more simply?
 - **Backwards compatibility**: Does the change break any existing public interfaces, API contracts, or data formats?
 - **Coupling**: Does the change introduce tight coupling between components that should be independent?
+- **API contracts**: If this changes a public API (REST, gRPC, GraphQL, library), are changes backward-compatible? Is versioning handled? Are consumers notified?
+- **Data model changes**: Do database schema changes have migration scripts? Are they reversible? Do they handle existing data?
+
+---
+
+## Phase 2.5 — Dependency & Supply Chain Review
+
+If `package.json`, `go.mod`, `requirements.txt`, `*.csproj`, or `Cargo.toml` changed:
+
+- **New dependencies**: Is this dependency necessary? Could a standard library solution work? Check:
+  - Download count / popularity (npm, PyPI, crates.io)
+  - Last published date (stale > 2 years is a yellow flag)
+  - Known vulnerabilities: `npm audit`, `pip-audit`, `dotnet list package --vulnerable`, `cargo audit`
+  - License compatibility with the project
+- **Version pinning**: Are versions pinned appropriately? Lockfiles updated?
+- **Transitive dependencies**: Does the new dep pull in a large dependency tree?
+- **Typosquatting**: Does the package name look suspiciously similar to a popular package?
 
 ---
 
@@ -65,6 +87,10 @@ Check every change for security implications:
 - **Sensitive data**: Are secrets, PII, or tokens being logged, serialized to disk, or returned in responses where they shouldn't be?
 - **Dependencies**: Are any new dependencies introduced? If so, are they well-maintained and free of known CVEs? (`gh` can help check: look for `package.json`, `go.mod`, `requirements.txt` changes)
 - **Error messages**: Do error messages leak internal details (stack traces, file paths, DB schema) to untrusted callers?
+- **SSRF**: Does the code fetch URLs from user input? Are there allowlists for target hosts/schemes?
+- **CSRF**: Are state-changing endpoints protected with CSRF tokens (for cookie-based auth)?
+- **Rate limiting**: Are public-facing endpoints protected against abuse? Is there throttling?
+- **Deserialization**: Is untrusted data deserialized safely? (pickle, yaml.load, JSON.parse of user input into object types)
 
 ---
 
@@ -92,6 +118,19 @@ Review the code itself for readability and correctness:
 - **Null/nil/undefined**: Are nullable values checked before dereferencing? Are there potential NPEs / nil pointer dereferences?
 - **DRY**: Is logic duplicated that could be extracted into a shared function or utility?
 - **Dead code**: Commented-out code, unused imports, unreachable branches
+
+---
+
+## Phase 5.5 — Accessibility Review (Frontend Changes Only)
+
+Skip this phase if the change is backend-only.
+
+- **Semantic HTML**: Are proper elements used (`<button>` vs `<div onClick>`, `<nav>`, `<main>`, `<article>`)?
+- **ARIA attributes**: Are interactive elements accessible? Do custom components have appropriate roles and labels?
+- **Keyboard navigation**: Can all interactive elements be reached and activated via keyboard?
+- **Color contrast**: Do text/background combinations meet WCAG AA contrast ratio (4.5:1)?
+- **Alt text**: Do images have meaningful alt text (or `alt=""` for decorative images)?
+- **Focus management**: Is focus handled correctly after dynamic content changes (modals, route changes)?
 
 ---
 
@@ -174,6 +213,7 @@ Specific things done well. Be genuine — this isn't filler.
 ---
 **Summary**: <2–3 sentence overall assessment. Recommend: Approve / Approve with
 minor comments / Request changes.>
+**Statistics**: Files reviewed: N | Lines changed: +X / -Y | Findings: N (M must-fix, N should-fix)
 ```
 
 **Guidelines for findings:**

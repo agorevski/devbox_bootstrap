@@ -5,6 +5,15 @@ description: >
   the appropriate testing framework, generates real test code for key
   functions/classes, configures coverage reporting, and wires up pre-commit
   hooks. Supports .NET, Python, Node.js/TypeScript, Go, and Rust.
+triggers:
+  - "add tests"
+  - "set up testing"
+  - "add test suite"
+  - "configure tests"
+  - "add unit tests"
+  - "set up test framework"
+  - "write tests"
+  - "add test coverage"
 ---
 
 # Skill: Add Tests
@@ -571,6 +580,80 @@ After setup, **inspect the actual source files** and generate real (non-stub) te
 
 ---
 
+## Phase 4.5 — Advanced Test Patterns
+
+Introduce these patterns when projects grow beyond basic unit tests.
+
+### Property-based testing
+
+Instead of testing individual examples, define **properties** that must hold for
+any valid input. The framework generates hundreds of random inputs automatically.
+
+| Stack | Library | Example |
+|---|---|---|
+| .NET | FsCheck | `[Property] public void Total_IsAlways_NonNegative(PositiveInt[] prices)` |
+| Python | Hypothesis | `@given(st.lists(st.floats(min_value=0)))` |
+| Node/TS | fast-check | `fc.assert(fc.property(fc.array(fc.nat()), xs => sum(xs) >= 0))` |
+| Go | rapid | `rapid.Check(t, func(t *rapid.T) { ... })` |
+| Rust | proptest | `proptest! { fn total_non_negative(v in vec(0.0f64..1000.0, 0..100)) { ... } }` |
+
+### Snapshot / approval testing
+
+Capture complex output (JSON, HTML, error messages) once, then assert future
+runs match. Ideal for serializers, renderers, and API responses.
+
+| Stack | Library | Notes |
+|---|---|---|
+| .NET | Verify | `await Verify(result);` — stores `.verified.txt` files |
+| Python | pytest-snapshot | `assert result == snapshot` |
+| Node/TS | Vitest snapshots | `expect(result).toMatchSnapshot()` (built-in) |
+| Go | cupaloy | `cupaloy.SnapshotT(t, result)` |
+| Rust | insta | `insta::assert_snapshot!(result);` |
+
+### Contract testing
+
+For services that communicate over HTTP/gRPC, use **Pact** to define a contract
+between consumer and provider. Each side tests independently against the
+contract, catching integration issues without deploying both services.
+
+```
+Consumer test → generates pact file → Provider verifies pact file
+```
+
+See https://docs.pact.io for language-specific setup.
+
+### Test data factories / builders
+
+Avoid scattered object construction across tests. Use a builder pattern:
+
+```python
+# Python example
+class UserBuilder:
+    def __init__(self):
+        self._name = "Alice"
+        self._email = "alice@example.com"
+        self._role = "viewer"
+
+    def with_name(self, name):
+        self._name = name
+        return self
+
+    def with_role(self, role):
+        self._role = role
+        return self
+
+    def build(self):
+        return User(name=self._name, email=self._email, role=self._role)
+
+# Usage in tests
+user = UserBuilder().with_role("admin").build()
+```
+
+Equivalent patterns: `AutoFixture` (.NET), `fishery` (Node/TS), `factory_bot`
+style helpers (Go/Rust).
+
+---
+
 ## Phase 5 — Test Patterns Checklist
 
 Apply these patterns when writing tests:
@@ -584,6 +667,8 @@ Apply these patterns when writing tests:
 | **Test names as sentences** | `CalculateTotal_NegativeQuantity_ThrowsArgumentException` or `returns error when quantity is negative` |
 | **No logic in tests** | No loops, conditionals, or string building — use parameterized/table tests instead |
 | **Deterministic** | No `Thread.Sleep`, no real network/disk unless explicitly testing I/O |
+| **Test isolation** | Each test must be independent — no shared mutable state, use fresh fixtures per test |
+| **Flaky test prevention** | Avoid real time/dates (inject clocks), avoid port conflicts (use random ports), avoid file system state |
 
 ---
 
@@ -620,7 +705,7 @@ jobs:
 
       # Python
       - uses: actions/setup-python@v5
-        with: { python-version: '3.12' }
+        with: { python-version: '3.13' }
       - run: pip install pytest pytest-cov && pytest
 
       # Node
@@ -640,6 +725,22 @@ jobs:
 
 Adapt to the user's actual CI system if it differs (GitLab CI, Azure Pipelines, etc.).
 
+### Mutation testing (beyond coverage)
+
+Line coverage only proves code was executed, not that tests catch bugs.
+Mutation testing introduces small code changes and verifies tests fail.
+
+| Stack | Tool | Command |
+|---|---|---|
+| .NET | Stryker.NET | `dotnet stryker` |
+| Python | mutmut | `mutmut run` |
+| Node/TS | Stryker | `npx stryker run` |
+| Go | go-mutesting | `go-mutesting ./...` |
+| Rust | cargo-mutants | `cargo mutants` |
+
+Consider running mutation testing periodically (not on every PR) to
+identify weak spots in the test suite.
+
 ---
 
 ## Phase 7 — Pre-commit Hooks
@@ -654,6 +755,14 @@ Create `.pre-commit-config.yaml` at repo root:
 
 ```yaml
 repos:
+  # Ruff (Python linting + formatting — fast, replaces pylint/flake8/isort/black)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.7
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
   - repo: local
     hooks:
       # .NET

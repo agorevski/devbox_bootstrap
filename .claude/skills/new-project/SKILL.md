@@ -517,7 +517,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '8.x' }
+        with: { dotnet-version: '9.x' }
       - run: dotnet restore
       - run: dotnet build --no-restore
       - run: dotnet test --no-build
@@ -533,7 +533,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: '3.12' }
+        with: { python-version: '3.13' }
       - run: pip install -r requirements.txt
       - run: pytest
       - run: ruff check .
@@ -549,7 +549,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'npm' }
+        with: { node-version: '22', cache: 'npm' }
       - run: npm ci
       - run: npm run build
       - run: npm test
@@ -565,7 +565,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with: { go-version: '1.22' }
+        with: { go-version: '1.23' }
       - run: go build ./...
       - run: go test ./...
       - run: go vet ./...
@@ -585,6 +585,142 @@ jobs:
       - run: cargo test
       - run: cargo clippy -- -D warnings
       - run: cargo fmt --check
+```
+
+### 4g — LICENSE
+
+Ask the user which license to use (default: MIT):
+
+```
+Which open-source license? (default: MIT)
+a) MIT
+b) Apache-2.0
+c) GPL-3.0
+d) BSD-3-Clause
+e) No license / proprietary
+```
+
+For MIT, create `LICENSE` with the standard MIT text and current year + user's name.
+For others, use the standard SPDX text from https://choosealicense.com.
+For proprietary, create `LICENSE` with: "Copyright (c) {year} {org}. All rights reserved."
+
+### 4h — SECURITY.md
+
+```markdown
+# Security Policy
+
+## Supported Versions
+
+| Version | Supported          |
+|---------|--------------------|
+| latest  | ✅ |
+
+## Reporting a Vulnerability
+
+If you discover a security vulnerability, please report it responsibly:
+
+1. **Do NOT** open a public GitHub issue.
+2. Email [security@example.com] with details of the vulnerability.
+3. Include steps to reproduce, impact assessment, and suggested fix if possible.
+4. You will receive a response within 48 hours.
+
+We follow [coordinated vulnerability disclosure](https://en.wikipedia.org/wiki/Coordinated_vulnerability_disclosure).
+```
+
+Update the email address placeholder to match the project/org.
+
+### 4i — GitHub Issue & PR Templates
+
+Create `.github/ISSUE_TEMPLATE/bug_report.md`:
+```markdown
+---
+name: Bug Report
+about: Report a bug to help us improve
+labels: bug
+---
+
+## Description
+A clear description of the bug.
+
+## Steps to Reproduce
+1. Go to '...'
+2. Click on '...'
+3. See error
+
+## Expected Behavior
+What you expected to happen.
+
+## Actual Behavior
+What actually happened.
+
+## Environment
+- OS: [e.g., Windows 11]
+- Version: [e.g., v1.2.0]
+```
+
+Create `.github/ISSUE_TEMPLATE/feature_request.md`:
+```markdown
+---
+name: Feature Request
+about: Suggest a new feature
+labels: enhancement
+---
+
+## Problem
+Describe the problem this feature would solve.
+
+## Proposed Solution
+Describe your preferred solution.
+
+## Alternatives Considered
+Any alternative approaches you've considered.
+```
+
+Create `.github/pull_request_template.md`:
+```markdown
+## What
+Brief description of the change.
+
+## Why
+Motivation and context.
+
+## How
+Key implementation decisions.
+
+## Testing
+How was this tested?
+
+## Checklist
+- [ ] Tests added/updated
+- [ ] Documentation updated
+- [ ] No breaking changes (or migration guide provided)
+```
+
+### 4j — Dependabot & CODEOWNERS
+
+Create `.github/dependabot.yml`:
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  # Add the relevant ecosystem:
+  # - package-ecosystem: "npm"         # Node.js
+  # - package-ecosystem: "pip"         # Python
+  # - package-ecosystem: "nuget"       # .NET
+  # - package-ecosystem: "gomod"       # Go
+  # - package-ecosystem: "cargo"       # Rust
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+```
+
+Create `CODEOWNERS`:
+```
+# Default owner for everything
+* @{github-username}
 ```
 
 ---
@@ -637,14 +773,14 @@ Generate a multi-stage `Dockerfile` appropriate for the stack:
 
 **.NET:**
 ```dockerfile
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY *.csproj .
 RUN dotnet restore
 COPY . .
 RUN dotnet publish -c Release -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 COPY --from=build /app .
 ENTRYPOINT ["dotnet", "{ProjectName}.dll"]
@@ -652,7 +788,7 @@ ENTRYPOINT ["dotnet", "{ProjectName}.dll"]
 
 **Python:**
 ```dockerfile
-FROM python:3.12-slim
+FROM python:3.13-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -663,14 +799,14 @@ CMD ["uvicorn", "{project_name}.main:app", "--host", "0.0.0.0", "--port", "8000"
 
 **Node.js:**
 ```dockerfile
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY package*.json .
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 COPY --from=build /app/dist ./dist
 COPY package*.json .
@@ -680,7 +816,7 @@ CMD ["node", "dist/index.js"]
 
 **Go:**
 ```dockerfile
-FROM golang:1.22-alpine AS build
+FROM golang:1.23-alpine AS build
 WORKDIR /src
 COPY go.* .
 RUN go mod download
@@ -694,7 +830,7 @@ ENTRYPOINT ["/app"]
 
 **Rust:**
 ```dockerfile
-FROM rust:1.77-slim AS build
+FROM rust:1.83-slim AS build
 WORKDIR /src
 COPY . .
 RUN cargo build --release
@@ -734,8 +870,11 @@ After all steps complete, print the following summary:
 🐙 GitHub:  {repo-url or "local only"}
 
 Files created:
-  • README.md, CONTRIBUTING.md, .editorconfig, .gitignore
+  • README.md, CONTRIBUTING.md, SECURITY.md, LICENSE, .editorconfig, .gitignore
   • .github/workflows/ci.yml
+  • .github/ISSUE_TEMPLATE/bug_report.md, .github/ISSUE_TEMPLATE/feature_request.md
+  • .github/pull_request_template.md
+  • .github/dependabot.yml, CODEOWNERS
   • {stack-specific source files listed here}
   {• Dockerfile, docker-compose.yml, .dockerignore  ← if Docker}
   {• .pre-commit-config.yaml  ← if Python}

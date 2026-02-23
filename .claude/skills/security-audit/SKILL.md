@@ -1,12 +1,11 @@
 ---
 name: security-audit
-description: |
+description: >
   Performs a comprehensive security audit of a software project. Covers secrets
   scanning, dependency vulnerabilities, OWASP Top 10, container security, IaC
   security, and code quality security issues. Produces a severity-classified
   findings report with concrete remediation steps.
-  
-  Trigger phrases:
+triggers:
   - "run a security audit"
   - "security review this project"
   - "scan for vulnerabilities"
@@ -205,6 +204,54 @@ done
 
 ---
 
+## Phase 2.5 — Supply Chain Security
+
+### Lockfile integrity
+```bash
+# Verify lockfiles exist and are consistent
+[ -f package-lock.json ] && npm ci --dry-run 2>&1 | grep -i "ERR" | head -5
+[ -f requirements.txt ] && pip install --dry-run -r requirements.txt 2>&1 | grep -i "error" | head -5
+
+# Check for lockfile tampering (package.json vs package-lock.json drift)
+npm ls --all 2>&1 | grep "ELSPROBLEMS\|missing\|invalid" | head -10
+```
+
+### Typosquatting detection
+```bash
+# Check for suspiciously named packages (common targets)
+# Node.js — compare against known typosquat patterns
+cat package.json 2>/dev/null | python3 -c "
+import sys, json
+deps = json.load(sys.stdin)
+for section in ('dependencies','devDependencies'):
+    for pkg in deps.get(section,{}):
+        if any(c in pkg for c in ['_','-']) and len(pkg) > 3:
+            print(f'  Review: {pkg}')
+" 2>/dev/null
+```
+
+### SBOM generation
+```bash
+# Generate Software Bill of Materials
+# Node.js
+npx @cyclonedx/cyclonedx-npm --output-file sbom.json 2>/dev/null \
+  || echo "Install: npm install -g @cyclonedx/cyclonedx-npm"
+
+# Python
+cyclonedx-py requirements -r requirements.txt -o sbom.json 2>/dev/null \
+  || echo "Install: pip install cyclonedx-bom"
+
+# .NET
+dotnet CycloneDX . -o . 2>/dev/null \
+  || echo "Install: dotnet tool install -g CycloneDX"
+
+# Go
+cyclonedx-gomod mod -output sbom.json 2>/dev/null \
+  || echo "Install: go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest"
+```
+
+---
+
 ## Phase 3 — OWASP Top 10 Quick Check
 
 These require code inspection. Look for patterns; flag for manual review where automated detection is insufficient.
@@ -288,6 +335,40 @@ grep -rn --include="*.{cs,py,js,ts}" \
   -iE "\.Password\s*=|password\s*=\s*[a-zA-Z_]" \
   . 2>/dev/null | grep -v ".git/" | grep -v "node_modules/" \
   | grep -v "hash\|bcrypt\|argon\|scrypt\|pbkdf" | head -20
+```
+
+### A05 — Security Misconfiguration (expanded)
+
+```bash
+# CSRF protection missing
+grep -rn --include="*.{cs,py,js,ts}" \
+  -iE "ValidateAntiForgeryToken|csrf_exempt|csrftoken|csurf|csrf" \
+  . 2>/dev/null | grep -v ".git/" | grep -v "node_modules/" | head -10
+# If NO results and project has cookie-based auth → flag as finding
+```
+
+### A10 — Server-Side Request Forgery (SSRF)
+
+```bash
+# User-controlled URLs fetched server-side
+grep -rn --include="*.{cs,py,js,ts}" \
+  -iE "HttpClient.*request|requests\.get.*user|fetch\(.*req\.|urllib.*request\.|WebClient.*Download" \
+  . 2>/dev/null | grep -v ".git/" | grep -v "node_modules/" | head -20
+
+# Missing URL allowlists
+grep -rn --include="*.{cs,py,js,ts}" \
+  -iE "new (HttpClient|WebClient)|requests\.(get|post)|fetch\(" \
+  . 2>/dev/null | grep -v ".git/" | grep -v "node_modules/" | head -20
+```
+
+### Rate Limiting & DoS Protection
+
+```bash
+# Check for rate limiting middleware
+grep -rn --include="*.{cs,py,js,ts,yaml,yml}" \
+  -iE "rate.?limit|throttl|slowdown|express-rate-limit|aspnetcoreratelimiting|slowapi|limiter" \
+  . 2>/dev/null | grep -v ".git/" | grep -v "node_modules/" | head -10
+# If NO results and project has public APIs → flag as Medium finding
 ```
 
 ### A09 — Security Logging & Monitoring Failures
@@ -516,6 +597,51 @@ After completing all phases, compile and emit the following report structure. Fi
 | npm audit / pip-audit / dotnet vulnerable | Dep scanning per stack | Run in CI on PR |
 | checkov / tfsec | IaC scanning | Run on Terraform/Bicep changes |
 | OWASP ZAP / Burp Suite | DAST on staging environment | Weekly scheduled scan |
+
+---
+
+## GitHub Advanced Security Integration
+
+If the repository is hosted on GitHub (Enterprise or public), recommend enabling:
+
+| Feature | Purpose |
+|---------|---------|
+| **Code scanning (CodeQL)** | Semantic analysis for vulnerabilities in every PR |
+| **Secret scanning** | Automatic detection of leaked credentials in pushes |
+| **Secret scanning push protection** | Block pushes containing secrets before they reach the repo |
+| **Dependabot alerts** | Automatic CVE notifications for dependencies |
+| **Dependabot security updates** | Auto-generated PRs to fix vulnerable dependencies |
+| **Dependency review** | Block PRs that introduce vulnerable dependencies |
+
+```yaml
+# .github/workflows/codeql.yml
+name: CodeQL Analysis
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly Monday 6am UTC
+
+permissions:
+  security-events: write
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        language: [javascript, python, csharp]  # adjust to detected languages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3
+```
 
 ---
 

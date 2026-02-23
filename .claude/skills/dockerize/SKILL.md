@@ -1,16 +1,16 @@
 ---
 name: dockerize
-description: |
+description: >
   Adds Docker containerization to an existing project. Generates Dockerfile (multi-stage),
   .dockerignore, docker-compose.yml, and docker-compose.override.yml tailored to the
   detected tech stack.
-  Trigger phrases:
-    - "dockerize this project"
-    - "add Docker support"
-    - "containerize this app"
-    - "create a Dockerfile"
-    - "set up docker-compose"
-    - "add container support"
+triggers:
+  - "dockerize this project"
+  - "add Docker support"
+  - "containerize this app"
+  - "create a Dockerfile"
+  - "set up docker-compose"
+  - "add container support"
 ---
 
 # Skill: Dockerize an Existing Project
@@ -161,7 +161,7 @@ Use multi-stage builds. Always:
 ### .NET (SDK → aspnet runtime)
 ```dockerfile
 # syntax=docker/dockerfile:1
-ARG DOTNET_VERSION=8.0
+ARG DOTNET_VERSION=9.0
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS builder
 WORKDIR /src
 
@@ -198,7 +198,7 @@ ENTRYPOINT ["dotnet", "<AssemblyName>.dll"]
 ### Python (slim image)
 ```dockerfile
 # syntax=docker/dockerfile:1
-FROM python:3.12-slim AS builder
+FROM python:3.13-slim AS builder
 WORKDIR /app
 
 # Install dependencies in an isolated prefix for copying
@@ -206,7 +206,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+FROM python:3.13-slim AS runtime
 WORKDIR /app
 
 # Non-root user
@@ -230,12 +230,12 @@ CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080
 ### Node.js (npm ci, dev/prod deps split)
 ```dockerfile
 # syntax=docker/dockerfile:1
-FROM node:20-slim AS deps
+FROM node:22-slim AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -243,7 +243,7 @@ COPY . .
 RUN npm run build          # remove if no build step
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -267,7 +267,7 @@ CMD ["node", "dist/index.js"]
 ### Go (multi-stage → distroless)
 ```dockerfile
 # syntax=docker/dockerfile:1
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 WORKDIR /src
 
 # Cache module downloads
@@ -297,7 +297,7 @@ ENTRYPOINT ["/app"]
 ### Rust (musl → scratch)
 ```dockerfile
 # syntax=docker/dockerfile:1
-FROM rust:1.77-slim AS builder
+FROM rust:1.83-slim AS builder
 WORKDIR /src
 
 # Install musl target for fully static binary
@@ -346,6 +346,15 @@ services:
         condition: service_healthy
       cache:
         condition: service_healthy
+    # Adjust limits per your app's requirements. Remove for local dev if too restrictive.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 128M
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -426,6 +435,48 @@ Stack-specific `command` overrides:
 | Node.js | `npm run dev` (assumes nodemon or similar) |
 | Go | Install `air` in builder stage; `air` |
 | Rust | `cargo watch -x run` |
+
+---
+
+## Step 5.5 — Secrets Management
+
+Never bake secrets into images. Use one of these approaches:
+
+### Development: `.env` file (already configured)
+The `env_file: [.env]` directive in `docker-compose.yml` injects secrets at runtime.
+
+### Production: Docker secrets (Swarm) or external secret managers
+
+For Docker Compose (v3.1+) with file-based secrets:
+```yaml
+services:
+  app:
+    secrets:
+      - db_password
+    environment:
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt    # local dev
+    # external: true                    # Docker Swarm / production
+```
+
+For Kubernetes: use `Secret` objects mounted as volumes or env vars.
+For Azure: use Azure Key Vault with Managed Identity — never store secrets in AKS ConfigMaps.
+
+### Build-time secrets (Docker BuildKit)
+```bash
+# Pass secrets during build without baking them into layers
+DOCKER_BUILDKIT=1 docker build \
+  --secret id=npm_token,src=$HOME/.npmrc \
+  -t myapp .
+```
+
+In Dockerfile:
+```dockerfile
+RUN --mount=type=secret,id=npm_token,target=/root/.npmrc npm ci
+```
 
 ---
 
@@ -510,6 +561,51 @@ docker buildx build \
 
 ---
 
+## Step 8.5 — Security Scanning
+
+### Scan built images for vulnerabilities
+```bash
+# Trivy (recommended)
+trivy image myapp:latest --severity HIGH,CRITICAL
+
+# Docker Scout (built into Docker Desktop)
+docker scout cves myapp:latest
+docker scout recommendations myapp:latest
+
+# Grype (alternative)
+grype myapp:latest
+```
+
+### Integrate scanning into CI
+```yaml
+# Add to .github/workflows/ci.yml
+  scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: myapp:${{ github.sha }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+```
+
+### Image signing and attestation
+```bash
+# Sign images with cosign (Sigstore)
+cosign sign --yes ghcr.io/org/myapp:latest
+
+# Verify signature
+cosign verify ghcr.io/org/myapp:latest
+```
+
+---
+
 ## Step 9 — Registry Push
 
 ### Docker Hub
@@ -580,7 +676,29 @@ docker compose run --rm --user root app chown -R appuser:appgroup /app
 ### Multi-arch build fails for native dependencies
 - Use `--platform` in the `FROM` line when cross-compiling:
   ```dockerfile
-  FROM --platform=$BUILDPLATFORM golang:1.22 AS builder
+  FROM --platform=$BUILDPLATFORM golang:1.23 AS builder
   ARG TARGETOS TARGETARCH
   RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build ...
   ```
+
+### DNS resolution failures inside containers
+```bash
+# Test DNS from inside a container
+docker compose exec app nslookup db
+
+# Fix: add DNS config to docker-compose.yml
+services:
+  app:
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+```
+
+### Build context too large / slow builds
+```bash
+# Check what's being sent to the daemon
+du -sh $(docker buildx inspect --bootstrap 2>/dev/null || echo ".")
+
+# Ensure .dockerignore excludes large directories:
+# .git, node_modules, .venv, target/, bin/, obj/
+```
