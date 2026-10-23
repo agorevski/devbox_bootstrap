@@ -14,6 +14,42 @@ Run the commands below in an **elevated PowerShell or Command Prompt** (Run as A
 
 ---
 
+## Linux (Ubuntu) Restore
+
+Restores a fresh Ubuntu machine. Each module is prompted for separately.
+
+**Prerequisites**
+
+- Ubuntu 22.04 or 24.04 LTS (desktop or server)
+- A normal user account with sudo access (do not run as root)
+- Internet connection
+
+**Run**
+
+```bash
+git clone https://github.com/agorevski/devbox_bootstrap.git ~/GIT/devbox_bootstrap
+cd ~/GIT/devbox_bootstrap
+./linux/bootstrap.sh                  # interactive, asks before each module
+./linux/bootstrap.sh --dry-run        # print actions without changing anything
+./linux/bootstrap.sh --yes            # accept all defaults
+./linux/bootstrap.sh --only devtools  # run only the listed module(s)
+./linux/bootstrap.sh --skip system    # skip module(s); comma lists also work
+```
+
+Modules run in order: `system` (apt, NVIDIA driver, snaps, repos), `devtools` (Node, Python, Rust, Docker, Claude Code, Copilot CLI, opencode, gh, Ollama), and `shell` (zsh, bash, git, gh config, ssh).
+
+**Secrets** are stored in `~/.config/devbox/secrets.env` (mode 600). This file is never committed to the repo.
+
+**Verify**
+
+```bash
+./linux/verify.sh   # read-only report of installed tools; exits 1 if a required tool is missing
+```
+
+After bootstrap, reboot if the NVIDIA driver was installed, and log out and back in so docker group and login shell changes take effect.
+
+---
+
 ## Windows Features
 
 ```bash

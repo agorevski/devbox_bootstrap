@@ -4,11 +4,15 @@
 alias python=python3
 alias pip=pip3
 
-source "$HOME/.cargo/env"
+if [[ -f "$HOME/.cargo/env" ]]; then
+  source "$HOME/.cargo/env"
+fi
 
 # Show user, host, and current directory in zsh prompts.
 PROMPT='%n@%m:%~%# '
 
-export CUDA_HOME=/usr/local/cuda-13.4
-export CUDACXX="$CUDA_HOME/bin/nvcc"
-export PATH="$CUDA_HOME/bin:$PATH"
+if [[ -d /usr/local/cuda ]]; then
+  export CUDA_HOME=/usr/local/cuda
+  export CUDACXX="$CUDA_HOME/bin/nvcc"
+  export PATH="$CUDA_HOME/bin:$PATH"
+fi
